@@ -1,34 +1,38 @@
-
 import numpy as np
 from collections import Counter
 
 class KNNClassifier:
     def __init__(self, k=3, distance_metric="euclidean"):
         self.k = k
-        self.distance_metric = distance_metric
-        self.X_train = None
-        self.y_train = None
+        self.metric = distance_metric
 
-    def fit(self, X, y):
-        self.X_train = np.array(X)       # make sure it's numpy
-        self.y_train = np.array(y)       # absolutely numpy array
+    def fit(self, X_train, y_train):
+        self.X_train = X_train
+        self.y_train = y_train
 
-    def predict(self, X):
-        return np.array([self._predict_single(x) for x in X])
+    def predict(self, X_test):
+        predictions = []
+        for test_point in X_test:
+            distances = []
 
-    def _predict_single(self, x):
-        distances = [self._distance(x, x_train) for x_train in self.X_train]
-        k_indices = np.argsort(distances)[:self.k]
-        k_nearest_labels = self.y_train[k_indices]  # <<=== SAFEST method
-        most_common = Counter(k_nearest_labels).most_common(1)
-        return most_common[0][0]
+            for i in range(len(self.X_train)):
+                if self.metric == "euclidean":
+                    d = np.linalg.norm(test_point - self.X_train[i])
+                elif self.metric == "manhattan":
+                    d = np.sum(np.abs(test_point - self.X_train[i]))
+                elif self.metric == "chebyshev":
+                    d = np.max(np.abs(test_point - self.X_train[i]))
+                else:
+                    raise ValueError("Unknown distance metric")
 
-    def _distance(self, x1, x2):
-        if self.distance_metric == "euclidean":
-            return np.sqrt(np.sum((x1 - x2) ** 2))
-        elif self.distance_metric == "manhattan":
-            return np.sum(np.abs(x1 - x2))
-        elif self.distance_metric == "chebyshev":
-            return np.max(np.abs(x1 - x2))
-        else:
-            raise ValueError(f"Unsupported distance metric: {self.distance_metric}")
+                distances.append((d, self.y_train[i]))
+
+            # Sort distances and pick k nearest
+            distances.sort(key=lambda x: x[0])
+            neighbors = [label for (_, label) in distances[:self.k]]
+
+            # Vote
+            vote = Counter(neighbors).most_common(1)[0][0]
+            predictions.append(vote)
+
+        return np.array(predictions)
